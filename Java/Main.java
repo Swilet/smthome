@@ -9,7 +9,7 @@ public class Main {
         int SENSOR_PORT  = 39187;
         int DOOR_PORT    = 39189;
 
-        System.out.println("=== [JAVA] Smart Home System Starting ===");
+        System.out.println("=== 스마트홈 작동 시작 ===");
 
         // 1. 서버 객체 생성
         TcpServer commandServer = new TcpServer(COMMAND_PORT);
@@ -26,7 +26,7 @@ public class Main {
         SwingUtilities.invokeLater(() -> {
             SmartHomeGUI gui = new SmartHomeGUI(commandServer, sensorServer, doorlockServer);
             gui.showWindow();
-            System.out.println("[JAVA] GUI 창이 표시되었습니다.");
+            System.out.println("GUI 창이 표시되었습니다.");
         });
     }
 }

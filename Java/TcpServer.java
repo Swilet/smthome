@@ -33,11 +33,11 @@ public class TcpServer {
     public void start() {
         Thread t = new Thread(() -> {
             try (ServerSocket serverSocket = new ServerSocket(port)) {
-                System.out.println("[JAVA] Command server listening on port " + port);
+                System.out.println("명령어 서버 실행 중, 포트: " + port);
 
                 while (true) {
                     Socket clientSocket = serverSocket.accept();
-                    System.out.println("[JAVA] Command client connected: " + clientSocket.getInetAddress());
+                    System.out.println("명령어 클라이언트 연결: " + clientSocket.getInetAddress());
 
                     PrintWriter writer = new PrintWriter(clientSocket.getOutputStream(), true);
                     clients.add(writer);
@@ -49,7 +49,7 @@ public class TcpServer {
             } catch (IOException e) {
                 e.printStackTrace();
             }
-        }, "command-server");
+        }, "명령어 서버");
         t.setDaemon(true);
         t.start();
     }
@@ -60,7 +60,7 @@ public class TcpServer {
             while ((line = in.readLine()) != null) {
                 String cmd = line.trim();
                 if (cmd.isEmpty()) continue;
-                System.out.println("[JAVA] Command received: " + cmd);
+                System.out.println("명령어 받음: " + cmd);
                 if (commandListener != null) {
                     commandListener.onCommand(cmd);
                 }
@@ -69,7 +69,7 @@ public class TcpServer {
         } catch (IOException ignored) {
         } finally {
             clients.remove(writer);
-            System.out.println("[JAVA] Command client disconnected");
+            System.out.println("명령어 클라이언트 연결 종료");
             try { clientSocket.close(); } catch (Exception ignored) {}
         }
     }

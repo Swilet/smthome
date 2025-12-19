@@ -7,9 +7,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-/**
- * Door event server (matches Spring's port). Receives door events and broadcasts to connected clients.
- */
 public class DoorlockServer {
 
     private final int port;
@@ -31,11 +28,11 @@ public class DoorlockServer {
     public void start() {
         Thread t = new Thread(() -> {
             try (ServerSocket serverSocket = new ServerSocket(port)) {
-                System.out.println("[JAVA] Door event server started, port: " + port);
+                System.out.println("문 이벤트 서버 시작, 포트: " + port);
 
                 while (true) {
                     Socket client = serverSocket.accept();
-                    System.out.println("[JAVA] Door event client connected: " + client.getInetAddress());
+                    System.out.println("문 이벤트 클라이언트 연결 성공: " + client.getInetAddress());
                     PrintWriter writer = new PrintWriter(client.getOutputStream(), true);
                     clients.add(writer);
 
@@ -47,7 +44,7 @@ public class DoorlockServer {
             } catch (Exception e) {
                 e.printStackTrace();
             }
-        }, "door-event-server");
+        }, "문 이벤트 서버");
         t.setDaemon(true);
         t.start();
     }
@@ -58,7 +55,7 @@ public class DoorlockServer {
             while ((line = in.readLine()) != null) {
                 String evt = line.trim();
                 if (evt.isEmpty()) continue;
-                System.out.println("[JAVA] Door event received: " + evt);
+                System.out.println("문 이벤트: " + evt);
                 if (listener != null) listener.onDoorlockEvent(evt);
                 broadcast(evt, writer);
             }
@@ -66,7 +63,7 @@ public class DoorlockServer {
         } finally {
             clients.remove(writer);
             try { client.close(); } catch (Exception ignored) {}
-            System.out.println("[JAVA] Door event client disconnected");
+            System.out.println("문 이벤트 클라이언트 연결 종료");
         }
     }
 
@@ -82,7 +79,6 @@ public class DoorlockServer {
         }
     }
 
-    // Allow manual broadcasting if we ever need to trigger events locally
     public void broadcast(String evt) {
         broadcast(evt, null);
     }

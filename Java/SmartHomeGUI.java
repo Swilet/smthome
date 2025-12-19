@@ -22,25 +22,21 @@ public class SmartHomeGUI {
     private long lastPirTriggerMs = 0L;
     private static final long PIR_COOLDOWN_MS = 5000;
 
-    // [다크 모드 팔레트]
     private static final Color BG_COLOR = new Color(30, 30, 40);       
     private static final Color CARD_COLOR = new Color(45, 45, 55);     
     private static final Color TEXT_WHITE = new Color(255, 255, 255);  
     private static final Color TEXT_GRAY = new Color(170, 170, 190);   
 
-    // 포인트 컬러 (형광)
     private static final Color NEON_BLUE = new Color(50, 150, 255);
     private static final Color NEON_RED = new Color(255, 80, 80);
     private static final Color NEON_GREEN = new Color(0, 220, 130);
     private static final Color NEON_YELLOW = new Color(255, 200, 50);
     private static final Color NEON_PURPLE = new Color(180, 100, 255);
     
-    // 버튼 색상
     private static final Color BTN_OFF_BG = new Color(70, 70, 80);
     private static final Color BTN_TEXT_ON = new Color(20, 20, 30);
     private static final Color BTN_TEXT_OFF = new Color(240, 240, 240);
 
-    // 폰트 (가독성 중심)
     private static final Font FONT_TITLE = new Font("Arial Black", Font.BOLD, 28);
     private static final Font FONT_VALUE = new Font("Verdana", Font.BOLD, 22);
     private static final Font FONT_LABEL = new Font("맑은 고딕", Font.BOLD, 15);
@@ -75,7 +71,6 @@ public class SmartHomeGUI {
         mainContent.setBackground(BG_COLOR);
         mainContent.setBorder(new EmptyBorder(30, 30, 30, 30));
 
-        // 1. 헤더 섹션
         JPanel headerPanel = new JPanel(new BorderLayout());
         headerPanel.setBackground(BG_COLOR);
         headerPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 60));
@@ -93,7 +88,6 @@ public class SmartHomeGUI {
         mainContent.add(headerPanel);
         mainContent.add(Box.createVerticalStrut(30));
 
-        // 2. 센서 모니터링 섹션
         JLabel labelSection1 = new JLabel("MONITORING");
         labelSection1.setFont(new Font("Arial", Font.BOLD, 14));
         labelSection1.setForeground(TEXT_GRAY);
@@ -105,7 +99,6 @@ public class SmartHomeGUI {
         sensorGrid.setBackground(BG_COLOR);
         sensorGrid.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        // [설정] 라벨 생성 (Humidity -> Temperature 변경됨)
         lblTemp = createSensorCard(sensorGrid, "Temperature", "--- °C", NEON_BLUE);
         lblGas = createSensorCard(sensorGrid, "Gas Level", "---", NEON_RED);
         lblDust = createSensorCard(sensorGrid, "Fine Dust", "---", NEON_YELLOW);
@@ -117,7 +110,6 @@ public class SmartHomeGUI {
         mainContent.add(sensorGrid);
         mainContent.add(Box.createVerticalStrut(40));
 
-        // 3. 컨트롤 패널 섹션
         JLabel labelSection2 = new JLabel("CONTROLS");
         labelSection2.setFont(new Font("Arial", Font.BOLD, 14));
         labelSection2.setForeground(TEXT_GRAY);
@@ -129,7 +121,6 @@ public class SmartHomeGUI {
         buttonPanel.setBackground(BG_COLOR);
         buttonPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        // 조명 버튼
         addButton(buttonPanel, "LED ON", NEON_BLUE, BTN_TEXT_ON, e -> {
             updateLedStatus("ON");
             commandServer.sendCommand("LED_ON");
@@ -139,15 +130,12 @@ public class SmartHomeGUI {
             commandServer.sendCommand("LED_OFF");
         });
 
-        // 팬 버튼
         addButton(buttonPanel, "FAN ON", NEON_BLUE, BTN_TEXT_ON, e -> commandServer.sendCommand("FAN_ON"));
         addButton(buttonPanel, "FAN OFF", BTN_OFF_BG, BTN_TEXT_OFF, e -> commandServer.sendCommand("FAN_OFF"));
 
-        // 모드 버튼
         addButton(buttonPanel, "SLEEP MODE", new Color(130, 100, 255), BTN_TEXT_ON, e -> commandServer.sendCommand("LIGHT_SLEEP"));
         addButton(buttonPanel, "WARM MODE", new Color(255, 170, 50), BTN_TEXT_ON, e -> commandServer.sendCommand("LIGHT_WARM"));
 
-        // RGB 제어 버튼
         addButton(buttonPanel, "RGB ON", new Color(255, 80, 180), BTN_TEXT_ON, e -> {
             updateLedStatus("RGB");
             commandServer.sendCommand("RGB_ON");
@@ -157,7 +145,6 @@ public class SmartHomeGUI {
             commandServer.sendCommand("RGB_OFF");
         });
 
-        // 보안 기능 버튼
         addButton(buttonPanel, "Face Unlock", NEON_GREEN, BTN_TEXT_ON, e -> commandServer.sendCommand("REQ_FACE_UNLOCK"), false);
         addButton(buttonPanel, "Register Face", new Color(100, 100, 100), BTN_TEXT_OFF, e -> {
             commandServer.sendCommand("REGISTER_FACE");
@@ -166,10 +153,12 @@ public class SmartHomeGUI {
 
         buttonPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 320));
         mainContent.add(buttonPanel);
-        mainContent.add(Box.createVerticalStrut(15));
+        mainContent.add(Box.createVerticalStrut(20));
 
-        // 4. 음성 인식 버튼
         ModernButton btnVoice = new ModernButton("Voice Command", NEON_BLUE, BTN_TEXT_ON);
+        btnVoice.setFont(new Font("Arial", Font.BOLD, 16)); 
+        btnVoice.setPreferredSize(new Dimension(100, 55));
+        
         btnVoice.addActionListener(e -> {
             new Thread(() -> {
                 try {
@@ -194,14 +183,15 @@ public class SmartHomeGUI {
             }).start();
         });
         
-        JPanel voicePanel = new JPanel(new GridLayout(1, 1));
+        JPanel voicePanel = new JPanel(new BorderLayout()); 
         voicePanel.setBackground(BG_COLOR);
-        voicePanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 60));
-        voicePanel.add(btnVoice);
+        voicePanel.setAlignmentX(Component.LEFT_ALIGNMENT); 
+        voicePanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 55)); 
+        voicePanel.add(btnVoice, BorderLayout.CENTER);
+        
         mainContent.add(voicePanel);
         mainContent.add(Box.createVerticalStrut(30));
 
-        // 5. RGB 슬라이더 패널
         JPanel rgbPanel = new RoundPanel();
         rgbPanel.setLayout(new BoxLayout(rgbPanel, BoxLayout.Y_AXIS));
         rgbPanel.setBackground(CARD_COLOR);
@@ -246,8 +236,6 @@ public class SmartHomeGUI {
         frame.setVisible(true);
     }
 
-    // --- Helper Methods ---
-
     private ModernButton addButton(JPanel panel, String text, Color bgColor, Color textColor, ActionListener action) {
         return addButton(panel, text, bgColor, textColor, action, true);
     }
@@ -276,25 +264,21 @@ public class SmartHomeGUI {
         });
     }
 
-    // [수정] 아이콘 제거, 텍스트 배치 최적화
     private JLabel createSensorCard(JPanel parent, String title, String initVal, Color accentColor) {
         RoundPanel card = new RoundPanel();
         card.setLayout(new BorderLayout());
         card.setBackground(CARD_COLOR);
         card.setBorder(new EmptyBorder(20, 25, 20, 25));
 
-        // 왼쪽: 제목
         JLabel titleLbl = new JLabel(title);
         titleLbl.setFont(FONT_LABEL);
         titleLbl.setForeground(TEXT_GRAY);
         
-        // 오른쪽: 값 (크게)
         JLabel valueLbl = new JLabel(initVal);
         valueLbl.setFont(FONT_VALUE);
         valueLbl.setForeground(TEXT_WHITE);
         valueLbl.setHorizontalAlignment(SwingConstants.RIGHT);
 
-        // 하단: 컬러 바 (포인트)
         JPanel bar = new JPanel();
         bar.setBackground(accentColor);
         bar.setPreferredSize(new Dimension(parent.getWidth(), 4));
@@ -312,7 +296,6 @@ public class SmartHomeGUI {
         sensorServer.addSensorListener((gas, temp, dust, pir) -> {
             SwingUtilities.invokeLater(() -> {
                 lblGas.setText(gas);
-                // [수정] 온도 단위 °C 표시
                 lblTemp.setText(temp + " °C");
                 lblDust.setText(dust + " ug");
                 lblPir.setText(pir == 1 ? "DETECTED" : "SAFE");
@@ -341,40 +324,32 @@ public class SmartHomeGUI {
         commandServer.sendCommand("REQ_FACE_UNLOCK");
     }
 
-    // 🔥 [핵심 수정] 파이썬의 온도 요청(REQ_TEMP) 처리 추가
     private void handleIncomingCommand(String rawCmd) {
         String cmd = rawCmd.trim();
         System.out.println("[JAVA] 수신된 명령: " + cmd);
 
-        // 1. RGB 색상 변경
         if (cmd.startsWith("RGB_SET")) { 
             updateLedStatus("RGB"); 
             return; 
         }
 
-        // 2. 파이썬이 온도를 요청했을 때 처리
         if (cmd.equals("REQ_TEMP")) {
-            String currentText = lblTemp.getText(); // 예: "24.5 °C"
+            String currentText = lblTemp.getText();
             System.out.println("[JAVA] 현재 GUI 온도: " + currentText);
 
-            // 숫자만 추출 (예: "24.5")
             String tempStr = currentText.replace(" °C", "").replace("---", "").trim();
             
-            // 값이 없거나 초기 상태면 기본값 0.0 전송
             if(tempStr.isEmpty()) tempStr = "0.0"; 
 
-            // 파이썬으로 응답 전송
             String response = "CURRENT_TEMP:" + tempStr;
             commandServer.sendCommand(response);
             System.out.println("[JAVA] 온도 응답 전송: " + response);
             return;
         }
 
-        // 3. 도어락 이벤트 처리
         if (isDoorEvent(cmd)) { 
             handleDoorEvent(cmd); 
         }
-        // 4. 기타 제어 명령 처리
         else {
             switch (cmd) {
                 case "LED_ON": updateLedStatus("ON"); break;
@@ -408,8 +383,6 @@ public class SmartHomeGUI {
         out.println(msg);
         out.close(); s.close();
     }
-
-    // --- Custom UI Classes ---
 
     static class RoundPanel extends JPanel {
         public RoundPanel() { setOpaque(false); }
