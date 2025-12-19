@@ -6,6 +6,7 @@ import socket
 import time
 import threading
 import os
+import sys
 import urllib.parse
 import numpy as np
 import sounddevice as sd
@@ -17,38 +18,30 @@ from pathlib import Path
 from playsound import playsound
 from faster_whisper import WhisperModel
 from bs4 import BeautifulSoup
+from dotenv import load_dotenv
 
 # ---------------------------------------------------------
-# [설정] API 키 및 모델 설정ㅏ
+# [설정] API 키 및 모델 설정
 # ---------------------------------------------------------
 ## -----------------------------------------
 ## Gemini API 키 안 털리게 조심!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!(이미 한 번 털림)
 ## 커밋 시 API 키 부분 꼭 지우기!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! -- env 파일로 분리하여 해결
 ## -----------------------------------------
-import os
-import sys
-from dotenv import load_dotenv
-import google.generativeai as genai
 
+# 현재 파일 위치 기준으로 key.env 찾기 (절대 경로)
 current_dir = os.path.dirname(os.path.abspath(__file__))
-
 env_path = os.path.join(current_dir, "key.env")
-
 load_dotenv(env_path)
 
 # 키 확인
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 if not GEMINI_API_KEY:
-    print(f"[오류] API 키를 찾을 수 없습니다!")
+    print(f"[ERROR] API 키를 찾을 수 없습니다!")
     print(f"파이썬이 찾은 경로: {env_path}")
     print("key.env 파일 안에 'GEMINI_API_KEY=...' 라고 적혀있는지 확인해주세요.")
-    # 키 없으면 더 진행하면 안 되므로 종료
-    # sys.exit() 
 else:
-    print("✅ API 키 로드 성공!")
-
-genai.configure(api_key=GEMINI_API_KEY)
+    print("[System] API Key Loaded.")
 
 # Gemini 모델 설정
 genai.configure(api_key=GEMINI_API_KEY)
@@ -60,7 +53,7 @@ GEN_CONFIG = {
 }
 
 try:
-    # 2.5-flash 모델 사용 (빠른 속도 및 우수한 성능) // 하루 사용량 주의
+    # 요청하신 대로 2.5-flash 모델 유지
     gemini_model = genai.GenerativeModel(
         model_name="gemini-2.5-flash", 
         generation_config=GEN_CONFIG
@@ -83,6 +76,10 @@ g_is_registering = False   # 얼굴 등록 모드 여부
 g_is_recognizing = False   # 얼굴 인식 활성화 여부
 g_command_lock = False     # 명령 중복 방지 락
 
+# 중복 실행 방지용 타임스탬프 (스마트 케어 실행 시간)
+g_last_smart_care_time = 0 
+g_indoor_temp = None       # 자바에서 받아온 실내 온도
+
 # ---------------------------------------------------------
 # [Data] 명령어 및 매핑 데이터
 # ---------------------------------------------------------
@@ -93,7 +90,7 @@ COMMANDS = [
     {"kws": ["불 꺼", "조명 꺼", "전등 꺼"], "msg": "조명을 끕니다.", "lang": "ko", "cmd": "LED_OFF"},
     {"kws": ["선풍기 켜", "팬 켜"], "msg": "선풍기를 가동합니다.", "lang": "ko", "cmd": "FAN_ON"},
     {"kws": ["선풍기 꺼", "팬 꺼"], "msg": "선풍기를 정지합니다.", "lang": "ko", "cmd": "FAN_OFF"},
-    {"kws": ["문 열어", "문 열어줘"], "msg": "도어락을 해제합니다.", "lang": "ko", "cmd": "UNLOCK"},
+    {"kws": ["문 열어", "문 열어줘"], "msg": "네, 문을 열어드릴게요.", "lang": "ko", "cmd": "UNLOCK"},
     
     # 영어
     {"kws": ["turn on light", "lights on"], "msg": "Turning on lights.", "lang": "en", "cmd": "LED_ON"},
@@ -168,6 +165,7 @@ def ask_gemini(text, lang="ko"):
             print(f"[Gemini] Context Injected: {weather_data}")
             context_info = f"참고 정보: {weather_data}"
 
+        # 언어 설정 정의 위치 수정
         lang_instruction = {
             "ko": "한국어로 간결하게 답변.",
             "en": "Answer briefly in English.",
@@ -226,6 +224,56 @@ def send_command_to_java(cmd):
             time.sleep(0.5)
     print(f"[TCP] Failed to send: {cmd}")
     return False
+
+# ---------------------------------------------------------
+# [New Feature] 스마트 케어 루틴 (온도 제어)
+# ---------------------------------------------------------
+def run_smart_care_routine():
+    """문이 열릴 때 실내 온도를 확인하고 적절한 조치를 취함"""
+    global g_indoor_temp, g_last_smart_care_time
+    
+    # 🔥 [수정] 쿨타임을 10초로 늘려 무한 반복 방지
+    if time.time() - g_last_smart_care_time < 10.0:
+        print("[SmartCare] 최근 실행되어 건너뜁니다.")
+        return
+
+    g_last_smart_care_time = time.time()
+    
+    print("[SmartCare] 온도 체크 시작... 자바에게 요청 전송")
+    
+    # 1. 자바에게 온도 물어보기
+    g_indoor_temp = None
+    if not send_command_to_java("REQ_TEMP"):
+        print("[SmartCare] 자바 서버 연결 실패 (명령 전송 불가)")
+        return
+    
+    # 2. 답변 올 때까지 대기 (0.2초 * 15회 = 3초 대기)
+    for i in range(15):
+        time.sleep(0.2)
+        if g_indoor_temp is not None:
+            print(f"[SmartCare] {i*0.2:.1f}초 만에 온도 수신 성공!")
+            break
+    
+    # 3. 온도에 따른 판단 및 제어
+    if g_indoor_temp is not None:
+        print(f"[SmartCare] 측정된 실내 온도: {g_indoor_temp}°C")
+        
+        if g_indoor_temp <= 18.0:
+            msg = f"실내 온도가 {g_indoor_temp}도입니다. 춥네요. 난방기를 켜드릴게요."
+            speak_answer(msg, "ko")
+            send_command_to_java("FAN_ON")
+            
+        elif g_indoor_temp >= 26.0:
+            msg = f"실내 온도가 {g_indoor_temp}도입니다. 덥네요. 에어컨을 켜드릴게요."
+            speak_answer(msg, "ko")
+            send_command_to_java("FAN_ON")
+        else:
+            print("[SmartCare] 온도가 적당함")
+            
+    else:
+        # 끝까지 온도가 안 들어왔을 때
+        print("[SmartCare] ❌ 온도 수신 실패 (타임아웃)")
+        print("   👉 팁: 자바 프로그램을 껐다가 다시 켰는지 확인해주세요.")
 
 # ---------------------------------------------------------
 # [Logic] 얼굴 인식 및 등록
@@ -301,6 +349,7 @@ def run_face_recognition():
                 g_is_recognizing = False
                 continue
             print("[Face] 인식 시작")
+            
         # 등록된 얼굴 데이터 로드
         try:
             owner_encoding = np.load("owner_face.npy")
@@ -323,8 +372,16 @@ def run_face_recognition():
                 match = face_recognition.compare_faces([owner_encoding], enc, tolerance=0.45)
                 if True in match:
                     print("[Face] 인증 성공 -> 잠금 해제")
-                    speak_answer("인증되었습니다. 문을 엽니다.", "ko")
+                    
+                    # 1. 환영 인사
+                    speak_answer("주인님, 어서 오세요. 문을 엽니다.", "ko")
+                    
+                    # 2. 스마트 케어 실행 (쿨타임 적용됨)
+                    run_smart_care_routine()
+                    
+                    # 3. 문 열기 명령
                     send_command_to_java("UNLOCK")
+                    
                     last_unlock_ts = time.time()
                     g_is_recognizing = False
                     break
@@ -338,7 +395,7 @@ threading.Thread(target=run_face_recognition, daemon=True).start()
 # ---------------------------------------------------------
 def gui_command_listener():
     """Java GUI 명령 수신"""
-    global g_is_recognizing
+    global g_is_recognizing, g_indoor_temp
     while True:
         try:
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -350,14 +407,20 @@ def gui_command_listener():
                     cmds = data.split('\n')
                     for cmd in cmds:
                         cmd = cmd.strip()
-                        if not cmd or g_command_lock: continue
+                        if not cmd: continue
                         
                         print(f"[GUI Recv] {cmd}")
-                        
-                        if cmd == "REQ_FACE_UNLOCK":
+
+                        # 자바에서 보내준 온도 데이터 수신 (CURRENT_TEMP:24.5)
+                        if cmd.startswith("CURRENT_TEMP:"):
+                            try:
+                                temp_str = cmd.split(":")[1]
+                                g_indoor_temp = float(temp_str)
+                            except: pass
+
+                        elif cmd == "REQ_FACE_UNLOCK":
                             speak_answer("카메라를 봐주세요.", "ko")
                             g_is_recognizing = True
-                            # 10초 후 타임아웃 처리
                             threading.Timer(10, lambda: globals().update(g_is_recognizing=False)).start()
                         elif cmd == "REGISTER_FACE":
                             threading.Thread(target=start_face_registration).start()
@@ -366,14 +429,27 @@ def gui_command_listener():
 
 threading.Thread(target=gui_command_listener, daemon=True).start()
 
-# 연결 유지용 도어락 이벤트 리스너
+# 연결 유지 및 키패드 문 열림 감지 리스너
 def door_event_listener():
-    """도어락 상태 모니터링 (단순 연결 유지)"""
+    """도어락 상태 모니터링 (키패드 오픈 감지)"""
+    global g_last_smart_care_time
     while True: 
         try:
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                 s.connect((JAVA_SERVER_IP, DOOR_EVENT_PORT))
-                while s.recv(1024): pass
+                while True:
+                    data = s.recv(1024).decode()
+                    if not data: break
+                    
+                    # 문 열림 신호가 왔을 때
+                    if "UNLOCKED" in data:
+                        # 🔥 [수정] 쿨타임 10초 적용 (최근 얼굴인식/음성으로 연 게 아닐 때만 실행)
+                        if time.time() - g_last_smart_care_time > 10.0:
+                            print("[Door] Keypad/Manual Unlock Detected")
+                            speak_answer("문이 열렸습니다.", "ko")
+                            
+                            # 키패드로 열었을 때도 스마트 케어(온도 체크) 실행
+                            run_smart_care_routine()
         except:
             time.sleep(3)
 
@@ -413,7 +489,7 @@ def start_recording():
         recording_state['stream'].start()
         threading.Thread(target=record_audio_thread, daemon=True).start()
     except Exception as e:
-        print(f"[Voice] 마이크 초기화 실패: {e}")
+        print(f"[Voice] Mic Error: {e}")
         recording_state['active'] = False
 
 # 녹음 종료 및 처리
@@ -446,7 +522,7 @@ def stop_and_process():
         segments, info = whisper_model.transcribe(
             temp_wav, 
             beam_size=5, 
-            vad_filter=True,
+            vad_filter=True, 
             initial_prompt=f"Commands: {ALL_KEYWORDS}"
         )
         text = " ".join([s.text for s in segments]).strip()
@@ -455,31 +531,29 @@ def stop_and_process():
         print(f"[STT] Result: '{text}' (Lang: {lang})")
         
         if text:
-            process_intent(text, lang)
+            for cmd in COMMANDS:
+                if any(kw in text.lower() for kw in cmd["kws"]):
+                    print(f"[Intent] Command Detected: {cmd['cmd']}")
+                    speak_answer(cmd["msg"], cmd["lang"])
+                    
+                    # 음성으로 '문 열어' 했을 때도 스마트 케어 실행
+                    if cmd["cmd"] == "UNLOCK":
+                        run_smart_care_routine()
+                    
+                    send_command_to_java(cmd["cmd"])
+                    return
+
+            # LLM 질의 (Gemini)
+            answer = ask_gemini(text, lang)
+            print(f"[Gemini] Answer: {answer}")
+            speak_answer(answer, lang)
         else:
             print("[Voice] 음성 미감지")
             
     except Exception as e:
-        print(f"[Voice] 분석 에러: {e}")
+        print(f"[Voice] Analysis Error: {e}")
     finally:
         if os.path.exists(temp_wav): os.remove(temp_wav)
-
-def process_intent(text, lang):
-    """의도 파악 및 실행"""
-    text_clean = text.lower().strip()
-    
-    # 1. 제어 명령 확인
-    for cmd in COMMANDS:
-        if any(kw in text_clean for kw in cmd["kws"]):
-            print(f"[Intent] Command Detected: {cmd['cmd']}")
-            speak_answer(cmd["msg"], cmd["lang"])
-            send_command_to_java(cmd["cmd"])
-            return
-
-    # 2. LLM 질의 (Gemini)
-    answer = ask_gemini(text, lang)
-    print(f"[Gemini] Answer: {answer}")
-    speak_answer(answer, lang)
 
 def voice_trigger_server():
     """GUI의 음성 버튼 이벤트 수신"""

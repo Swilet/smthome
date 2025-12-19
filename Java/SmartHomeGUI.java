@@ -22,13 +22,13 @@ public class SmartHomeGUI {
     private long lastPirTriggerMs = 0L;
     private static final long PIR_COOLDOWN_MS = 5000;
 
-    // 🔥 [다크 모드 팔레트]
+    // [다크 모드 팔레트]
     private static final Color BG_COLOR = new Color(30, 30, 40);       
     private static final Color CARD_COLOR = new Color(45, 45, 55);     
     private static final Color TEXT_WHITE = new Color(255, 255, 255);  
     private static final Color TEXT_GRAY = new Color(170, 170, 190);   
 
-    // ✨ 포인트 컬러 (형광)
+    // 포인트 컬러 (형광)
     private static final Color NEON_BLUE = new Color(50, 150, 255);
     private static final Color NEON_RED = new Color(255, 80, 80);
     private static final Color NEON_GREEN = new Color(0, 220, 130);
@@ -84,7 +84,7 @@ public class SmartHomeGUI {
         titleLabel.setFont(FONT_TITLE);
         titleLabel.setForeground(TEXT_WHITE);
         
-        JLabel subtitleLabel = new JLabel("● SYSTEM ONLINE");
+        JLabel subtitleLabel = new JLabel("SYSTEM ONLINE");
         subtitleLabel.setFont(new Font("Arial", Font.BOLD, 12));
         subtitleLabel.setForeground(NEON_GREEN);
 
@@ -105,8 +105,8 @@ public class SmartHomeGUI {
         sensorGrid.setBackground(BG_COLOR);
         sensorGrid.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        // 🔥 [아이콘 제거] 텍스트와 컬러 바로만 승부!
-        lblTemp = createSensorCard(sensorGrid, "Humidity", "--- %", NEON_BLUE);
+        // [수정] 습도(Humidity)를 온도(Temperature)로 변경하고 단위도 % -> °C 로 수정
+        lblTemp = createSensorCard(sensorGrid, "Temperature", "--- °C", NEON_BLUE);
         lblGas = createSensorCard(sensorGrid, "Gas Level", "---", NEON_RED);
         lblDust = createSensorCard(sensorGrid, "Fine Dust", "---", NEON_YELLOW);
         lblPir = createSensorCard(sensorGrid, "Motion", "---", NEON_PURPLE);
@@ -273,7 +273,7 @@ public class SmartHomeGUI {
         });
     }
 
-    // 🔥 [수정] 아이콘 제거, 텍스트 배치 최적화
+    // [수정] 아이콘 제거, 텍스트 배치 최적화
     private JLabel createSensorCard(JPanel parent, String title, String initVal, Color accentColor) {
         RoundPanel card = new RoundPanel();
         card.setLayout(new BorderLayout());
@@ -310,7 +310,8 @@ public class SmartHomeGUI {
         sensorServer.addSensorListener((gas, temp, dust, pir) -> {
             SwingUtilities.invokeLater(() -> {
                 lblGas.setText(gas);
-                lblTemp.setText(temp + "%");
+                // [수정] 온도 단위 °C 표시
+                lblTemp.setText(temp + " °C");
                 lblDust.setText(dust + " ug");
                 lblPir.setText(pir == 1 ? "DETECTED" : "SAFE");
                 lblPir.setForeground(pir == 1 ? NEON_RED : TEXT_WHITE);
@@ -340,8 +341,37 @@ public class SmartHomeGUI {
 
     private void handleIncomingCommand(String rawCmd) {
         String cmd = rawCmd.trim();
-        if (cmd.startsWith("RGB_SET")) { updateLedStatus("RGB"); return; }
-        if (isDoorEvent(cmd)) { handleDoorEvent(cmd); }
+        System.out.println("[JAVA] 받은 명령: " + cmd); // 로그 추가 (확인용)
+
+        // 1. RGB 색상 변경 명령
+        if (cmd.startsWith("RGB_SET")) { 
+            updateLedStatus("RGB"); 
+            return; 
+        }
+
+        //[추가된 부분] 파이썬이 온도를 물어보면 답장해주는 코드
+        if (cmd.equals("REQ_TEMP")) {
+            String currentText = lblTemp.getText(); // 예: "24.5 °C"
+            System.out.println("[JAVA] 현재 GUI 온도: " + currentText);
+
+            // 숫자만 추출하기 (예: "24.5")
+            String tempStr = currentText.replace(" °C", "").replace("---", "").trim();
+            
+            // 만약 값이 없으면(초기 상태면) 기본값 전송
+            if(tempStr.isEmpty()) tempStr = "0.0"; 
+
+            // 파이썬에게 전송
+            String response = "CURRENT_TEMP:" + tempStr;
+            commandServer.sendCommand(response);
+            System.out.println("[JAVA] 응답 전송 -> " + response);
+            return;
+        }
+
+        // 2. 도어락 이벤트 처리
+        if (isDoorEvent(cmd)) { 
+            handleDoorEvent(cmd); 
+        }
+        // 3. 기타 제어 명령 처리
         else {
             switch (cmd) {
                 case "LED_ON": updateLedStatus("ON"); break;
