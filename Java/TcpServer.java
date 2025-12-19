@@ -9,9 +9,8 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * Multi-client TCP command server (Spring replacement).
- * - Broadcasts incoming commands to other clients.
- * - Notifies GUI via CommandListener.
+ * 브로드 캐스트로 파이썬으로 전송
+ * 커맨드 리스너로 GUI에 알려주기
  */
 public class TcpServer {
 
@@ -75,7 +74,7 @@ public class TcpServer {
         }
     }
 
-    // Broadcast to all clients (except sender when provided)
+    // 모든 클라이언트로 발송
     private void broadcast(String cmd, PrintWriter sender) {
         synchronized (clients) {
             for (PrintWriter out : new ArrayList<>(clients)) {
@@ -88,7 +87,7 @@ public class TcpServer {
         }
     }
 
-    // Send command originated from GUI to every client
+    // GUI에서 받는 메시지를 모든 클라이언트로 전송
     public void sendCommand(String cmd) {
         broadcast(cmd, null);
     }

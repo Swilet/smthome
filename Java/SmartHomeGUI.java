@@ -75,7 +75,7 @@ public class SmartHomeGUI {
         mainContent.setBackground(BG_COLOR);
         mainContent.setBorder(new EmptyBorder(30, 30, 30, 30));
 
-        // 1. 헤더
+        // 1. 헤더 섹션
         JPanel headerPanel = new JPanel(new BorderLayout());
         headerPanel.setBackground(BG_COLOR);
         headerPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 60));
@@ -93,7 +93,7 @@ public class SmartHomeGUI {
         mainContent.add(headerPanel);
         mainContent.add(Box.createVerticalStrut(30));
 
-        // 2. 센서 모니터링
+        // 2. 센서 모니터링 섹션
         JLabel labelSection1 = new JLabel("MONITORING");
         labelSection1.setFont(new Font("Arial", Font.BOLD, 14));
         labelSection1.setForeground(TEXT_GRAY);
@@ -105,7 +105,7 @@ public class SmartHomeGUI {
         sensorGrid.setBackground(BG_COLOR);
         sensorGrid.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        // [수정] 습도(Humidity)를 온도(Temperature)로 변경하고 단위도 % -> °C 로 수정
+        // [설정] 라벨 생성 (Humidity -> Temperature 변경됨)
         lblTemp = createSensorCard(sensorGrid, "Temperature", "--- °C", NEON_BLUE);
         lblGas = createSensorCard(sensorGrid, "Gas Level", "---", NEON_RED);
         lblDust = createSensorCard(sensorGrid, "Fine Dust", "---", NEON_YELLOW);
@@ -117,7 +117,7 @@ public class SmartHomeGUI {
         mainContent.add(sensorGrid);
         mainContent.add(Box.createVerticalStrut(40));
 
-        // 3. 컨트롤 패널
+        // 3. 컨트롤 패널 섹션
         JLabel labelSection2 = new JLabel("CONTROLS");
         labelSection2.setFont(new Font("Arial", Font.BOLD, 14));
         labelSection2.setForeground(TEXT_GRAY);
@@ -129,7 +129,7 @@ public class SmartHomeGUI {
         buttonPanel.setBackground(BG_COLOR);
         buttonPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        // 버튼
+        // 조명 버튼
         addButton(buttonPanel, "LED ON", NEON_BLUE, BTN_TEXT_ON, e -> {
             updateLedStatus("ON");
             commandServer.sendCommand("LED_ON");
@@ -139,12 +139,15 @@ public class SmartHomeGUI {
             commandServer.sendCommand("LED_OFF");
         });
 
+        // 팬 버튼
         addButton(buttonPanel, "FAN ON", NEON_BLUE, BTN_TEXT_ON, e -> commandServer.sendCommand("FAN_ON"));
         addButton(buttonPanel, "FAN OFF", BTN_OFF_BG, BTN_TEXT_OFF, e -> commandServer.sendCommand("FAN_OFF"));
 
+        // 모드 버튼
         addButton(buttonPanel, "SLEEP MODE", new Color(130, 100, 255), BTN_TEXT_ON, e -> commandServer.sendCommand("LIGHT_SLEEP"));
         addButton(buttonPanel, "WARM MODE", new Color(255, 170, 50), BTN_TEXT_ON, e -> commandServer.sendCommand("LIGHT_WARM"));
 
+        // RGB 제어 버튼
         addButton(buttonPanel, "RGB ON", new Color(255, 80, 180), BTN_TEXT_ON, e -> {
             updateLedStatus("RGB");
             commandServer.sendCommand("RGB_ON");
@@ -154,7 +157,7 @@ public class SmartHomeGUI {
             commandServer.sendCommand("RGB_OFF");
         });
 
-        // 보안
+        // 보안 기능 버튼
         addButton(buttonPanel, "Face Unlock", NEON_GREEN, BTN_TEXT_ON, e -> commandServer.sendCommand("REQ_FACE_UNLOCK"), false);
         addButton(buttonPanel, "Register Face", new Color(100, 100, 100), BTN_TEXT_OFF, e -> {
             commandServer.sendCommand("REGISTER_FACE");
@@ -198,7 +201,7 @@ public class SmartHomeGUI {
         mainContent.add(voicePanel);
         mainContent.add(Box.createVerticalStrut(30));
 
-        // 5. RGB 슬라이더
+        // 5. RGB 슬라이더 패널
         JPanel rgbPanel = new RoundPanel();
         rgbPanel.setLayout(new BoxLayout(rgbPanel, BoxLayout.Y_AXIS));
         rgbPanel.setBackground(CARD_COLOR);
@@ -278,7 +281,7 @@ public class SmartHomeGUI {
         RoundPanel card = new RoundPanel();
         card.setLayout(new BorderLayout());
         card.setBackground(CARD_COLOR);
-        card.setBorder(new EmptyBorder(20, 25, 20, 25)); // 여백 좀 더 확보
+        card.setBorder(new EmptyBorder(20, 25, 20, 25));
 
         // 왼쪽: 제목
         JLabel titleLbl = new JLabel(title);
@@ -294,9 +297,8 @@ public class SmartHomeGUI {
         // 하단: 컬러 바 (포인트)
         JPanel bar = new JPanel();
         bar.setBackground(accentColor);
-        bar.setPreferredSize(new Dimension(parent.getWidth(), 4)); // 전체 너비
+        bar.setPreferredSize(new Dimension(parent.getWidth(), 4));
         
-        // 레이아웃 배치
         card.add(titleLbl, BorderLayout.NORTH);
         card.add(Box.createVerticalStrut(10));
         card.add(valueLbl, BorderLayout.CENTER);
@@ -339,39 +341,40 @@ public class SmartHomeGUI {
         commandServer.sendCommand("REQ_FACE_UNLOCK");
     }
 
+    // 🔥 [핵심 수정] 파이썬의 온도 요청(REQ_TEMP) 처리 추가
     private void handleIncomingCommand(String rawCmd) {
         String cmd = rawCmd.trim();
-        System.out.println("[JAVA] 받은 명령: " + cmd); // 로그 추가 (확인용)
+        System.out.println("[JAVA] 수신된 명령: " + cmd);
 
-        // 1. RGB 색상 변경 명령
+        // 1. RGB 색상 변경
         if (cmd.startsWith("RGB_SET")) { 
             updateLedStatus("RGB"); 
             return; 
         }
 
-        //[추가된 부분] 파이썬이 온도를 물어보면 답장해주는 코드
+        // 2. 파이썬이 온도를 요청했을 때 처리
         if (cmd.equals("REQ_TEMP")) {
             String currentText = lblTemp.getText(); // 예: "24.5 °C"
             System.out.println("[JAVA] 현재 GUI 온도: " + currentText);
 
-            // 숫자만 추출하기 (예: "24.5")
+            // 숫자만 추출 (예: "24.5")
             String tempStr = currentText.replace(" °C", "").replace("---", "").trim();
             
-            // 만약 값이 없으면(초기 상태면) 기본값 전송
+            // 값이 없거나 초기 상태면 기본값 0.0 전송
             if(tempStr.isEmpty()) tempStr = "0.0"; 
 
-            // 파이썬에게 전송
+            // 파이썬으로 응답 전송
             String response = "CURRENT_TEMP:" + tempStr;
             commandServer.sendCommand(response);
-            System.out.println("[JAVA] 응답 전송 -> " + response);
+            System.out.println("[JAVA] 온도 응답 전송: " + response);
             return;
         }
 
-        // 2. 도어락 이벤트 처리
+        // 3. 도어락 이벤트 처리
         if (isDoorEvent(cmd)) { 
             handleDoorEvent(cmd); 
         }
-        // 3. 기타 제어 명령 처리
+        // 4. 기타 제어 명령 처리
         else {
             switch (cmd) {
                 case "LED_ON": updateLedStatus("ON"); break;
