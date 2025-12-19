@@ -22,13 +22,13 @@ public class SmartHomeGUI {
     private long lastPirTriggerMs = 0L;
     private static final long PIR_COOLDOWN_MS = 5000;
 
-    // 🔥 [다크 모드 팔레트]
+    // [다크 모드 팔레트]
     private static final Color BG_COLOR = new Color(30, 30, 40);       
     private static final Color CARD_COLOR = new Color(45, 45, 55);     
     private static final Color TEXT_WHITE = new Color(255, 255, 255);  
     private static final Color TEXT_GRAY = new Color(170, 170, 190);   
 
-    // ✨ 포인트 컬러 (형광)
+    // 포인트 컬러
     private static final Color NEON_BLUE = new Color(50, 150, 255);
     private static final Color NEON_RED = new Color(255, 80, 80);
     private static final Color NEON_GREEN = new Color(0, 220, 130);
@@ -40,7 +40,7 @@ public class SmartHomeGUI {
     private static final Color BTN_TEXT_ON = new Color(20, 20, 30);
     private static final Color BTN_TEXT_OFF = new Color(240, 240, 240);
 
-    // 폰트 (가독성 중심)
+    // 폰트
     private static final Font FONT_TITLE = new Font("Arial Black", Font.BOLD, 28);
     private static final Font FONT_VALUE = new Font("Verdana", Font.BOLD, 22);
     private static final Font FONT_LABEL = new Font("맑은 고딕", Font.BOLD, 15);
@@ -75,7 +75,7 @@ public class SmartHomeGUI {
         mainContent.setBackground(BG_COLOR);
         mainContent.setBorder(new EmptyBorder(30, 30, 30, 30));
 
-        // 1. 헤더
+        // 헤더
         JPanel headerPanel = new JPanel(new BorderLayout());
         headerPanel.setBackground(BG_COLOR);
         headerPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 60));
@@ -93,7 +93,7 @@ public class SmartHomeGUI {
         mainContent.add(headerPanel);
         mainContent.add(Box.createVerticalStrut(30));
 
-        // 2. 센서 모니터링
+        // 센서 모니터링
         JLabel labelSection1 = new JLabel("MONITORING");
         labelSection1.setFont(new Font("Arial", Font.BOLD, 14));
         labelSection1.setForeground(TEXT_GRAY);
@@ -105,7 +105,7 @@ public class SmartHomeGUI {
         sensorGrid.setBackground(BG_COLOR);
         sensorGrid.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        // 🔥 [아이콘 제거] 텍스트와 컬러 바로만 승부!
+        // 텍스트와 컬러 바
         lblTemp = createSensorCard(sensorGrid, "Humidity", "--- %", NEON_BLUE);
         lblGas = createSensorCard(sensorGrid, "Gas Level", "---", NEON_RED);
         lblDust = createSensorCard(sensorGrid, "Fine Dust", "---", NEON_YELLOW);
@@ -166,7 +166,13 @@ public class SmartHomeGUI {
         mainContent.add(Box.createVerticalStrut(15));
 
         // 4. 음성 인식 버튼
+        JLabel voiceStatus = new JLabel("IDLE");
+        voiceStatus.setFont(new Font("Arial", Font.BOLD, 12));
+        voiceStatus.setForeground(TEXT_GRAY);
+
         ModernButton btnVoice = new ModernButton("Voice Command", NEON_BLUE, BTN_TEXT_ON);
+        btnVoice.setMaximumSize(new Dimension(Integer.MAX_VALUE, 54));
+        btnVoice.setAlignmentX(Component.LEFT_ALIGNMENT);
         btnVoice.addActionListener(e -> {
             new Thread(() -> {
                 try {
@@ -176,6 +182,8 @@ public class SmartHomeGUI {
                         SwingUtilities.invokeLater(() -> {
                             btnVoice.setText("Listening...");
                             btnVoice.setColors(NEON_RED, BTN_TEXT_ON);
+                            voiceStatus.setText("LISTENING");
+                            voiceStatus.setForeground(NEON_RED);
                         });
                     } else {
                         sendVoiceCommand("STOP_RECORDING");
@@ -183,18 +191,45 @@ public class SmartHomeGUI {
                         SwingUtilities.invokeLater(() -> {
                             btnVoice.setText("Voice Command");
                             btnVoice.setColors(NEON_BLUE, BTN_TEXT_ON);
+                            voiceStatus.setText("IDLE");
+                            voiceStatus.setForeground(TEXT_GRAY);
                         });
                     }
                 } catch (Exception ex) {
+                    voiceRecording.set(false);
+                    SwingUtilities.invokeLater(() -> {
+                        btnVoice.setText("Voice Command");
+                        btnVoice.setColors(NEON_BLUE, BTN_TEXT_ON);
+                        voiceStatus.setText("OFFLINE");
+                        voiceStatus.setForeground(NEON_RED);
+                    });
                     ex.printStackTrace();
                 }
             }).start();
         });
-        
-        JPanel voicePanel = new JPanel(new GridLayout(1, 1));
-        voicePanel.setBackground(BG_COLOR);
-        voicePanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 60));
+
+        JPanel voicePanel = new RoundPanel();
+        voicePanel.setLayout(new BoxLayout(voicePanel, BoxLayout.Y_AXIS));
+        voicePanel.setBackground(CARD_COLOR);
+        voicePanel.setBorder(new EmptyBorder(20, 20, 20, 20));
+        voicePanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        voicePanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 140));
+
+        JPanel voiceHeader = new JPanel(new BorderLayout());
+        voiceHeader.setOpaque(false);
+        voiceHeader.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        JLabel voiceTitle = new JLabel("VOICE");
+        voiceTitle.setFont(new Font("Arial", Font.BOLD, 14));
+        voiceTitle.setForeground(TEXT_GRAY);
+
+        voiceHeader.add(voiceTitle, BorderLayout.WEST);
+        voiceHeader.add(voiceStatus, BorderLayout.EAST);
+
+        voicePanel.add(voiceHeader);
+        voicePanel.add(Box.createVerticalStrut(12));
         voicePanel.add(btnVoice);
+
         mainContent.add(voicePanel);
         mainContent.add(Box.createVerticalStrut(30));
 

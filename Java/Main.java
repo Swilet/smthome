@@ -4,7 +4,7 @@ public class Main {
 
         int COMMAND_PORT = 39186;
         int SENSOR_PORT  = 39187;
-        int DOOR_PORT    = 39189; // align with Spring/Python door-event port
+        int DOOR_PORT    = 39189;
 
         // 1) 서버 객체 생성
         TcpServer commandServer = new TcpServer(COMMAND_PORT);
